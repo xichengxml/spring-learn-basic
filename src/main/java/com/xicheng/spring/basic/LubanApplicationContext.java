@@ -5,6 +5,7 @@ import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.File;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +25,8 @@ public class LubanApplicationContext {
 	private final Map<String, BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>();
 
 	private final Map<String, Object> singletonMap = new ConcurrentHashMap<>();
+
+	private List<BeanPostProcessor> beanPostProcessorList = new ArrayList<>();
 
 	public LubanApplicationContext(Class<?> configClass) {
 		this.configClass = configClass;
@@ -48,17 +51,31 @@ public class LubanApplicationContext {
 	}
 
 	private Object doCreateBean(String beanName, BeanDefinition beanDefinition) throws Exception {
-		Object o = beanDefinition.getBeanClass().getDeclaredConstructor().newInstance();
+		Object bean = beanDefinition.getBeanClass().getDeclaredConstructor().newInstance();
 		// 属性填充
 		Field[] fields = beanDefinition.getBeanClass().getDeclaredFields();
 		for (Field field : fields) {
 			if (field.isAnnotationPresent(Autowired.class)) {
 				Object fieldBean = getBean(field.getName());
 				field.setAccessible(true);
-				field.set(o, fieldBean);
+				field.set(bean, fieldBean);
 			}
 		}
-		return o;
+		// aware回调
+		if (bean instanceof BeanNameAware) {
+			((BeanNameAware)bean).setBeanName(beanName);
+		}
+
+		// initializingBean
+		if (bean instanceof InitializingBean) {
+			((InitializingBean)bean).afterPropertiesSet();
+		}
+
+		// beanPostProcessor
+		for (BeanPostProcessor beanPostProcessor : beanPostProcessorList) {
+			beanPostProcessor.postProcessAfterInitialization(beanName, bean);
+		}
+		return bean;
 	}
 
 	private void generateBeanDefinition(List<Class<?>> classList) {
@@ -77,6 +94,17 @@ public class LubanApplicationContext {
 				beanDefinition.setScope(ScopeEnum.singleton);
 			}
 			beanDefinitionMap.put(beanName, beanDefinition);
+
+			// 添加beanPostProcessor
+			if (BeanPostProcessor.class.isAssignableFrom(clazz)) {
+				BeanPostProcessor beanPostProcessor = null;
+				try {
+					beanPostProcessor = (BeanPostProcessor) clazz.getDeclaredConstructor().newInstance();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				beanPostProcessorList.add(beanPostProcessor);
+			}
 		}
 	}
 
