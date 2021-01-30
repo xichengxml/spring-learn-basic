@@ -21,3 +21,40 @@ public class MyWebApplicationInitializer implements WebApplicationInitializer {
     }
 }
 ```
+
+#### SPI规范
+(services provider interface)
+
+用于服务发现、打破双亲委派
+
+1. 建文件夹 WEB-INF/services
+2. 建文件，文件名：接口全路径，文件内容：实现类全路径
+3. 自定义上下文类加载器（所有类加载器的共享区域），加载第2步的接口和实现类
+
+#### servlet规范
+如果是ServletContainerInitializer接口，需要调用onStartUp方法
+
+org.springframework.web.SpringServletContainerInitializer
+
+#### 双亲委派
+* BootstrapClassLoader: 加载rt.jar
+* ExtClassLoader：加载lib
+* AppClassLoader：加载classpath
+
+应用在类加载的时候，会首先委托给上层类加载器加载，如果不在上层类加载的加载路径，才会由下层类加载器加载。所有的类必须传递到最上层类加载器
+
+保证类的安全
+
+按双亲委派机制，SPI的实现父类加载器无法加载到具体的实现类，这时候就需要子类加载器去加载class文件。这样SPI就打破了双亲委派机制。
+
+以JDBC举例，DriverManager类和ServiceLoader类都是属于 rt.jar 的，它们的类加载器是Bootstrap ClassLoader顶层类加载器。
+而具体的数据库驱动却属于业务代码，这是启动类加载器是无法加载的。所以java.util.ServiceLoader类进行动态装载时，
+使用了线程的上下文类加载器进行加载。
+
+#### 源代码
+
+Spring加载tomcat初始化类使用的就是SPI技术，实现类：org.springframework.web.SpringServletContainerInitializer
+类上面的注解@HandlesTypes使用的是字节码技术
+
+源码流程参见springboot源码里的注释
+

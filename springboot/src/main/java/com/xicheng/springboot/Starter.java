@@ -1,6 +1,5 @@
 package com.xicheng.springboot;
 
-import com.xicheng.springboot.controller.HelloController;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 
@@ -22,7 +21,5 @@ public class Starter {
 
         WebServerFactory webServerFactory = context.getBean(WebServerFactory.class);
         webServerFactory.createServer();
-
-
     }
 }

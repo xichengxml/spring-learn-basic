@@ -11,13 +11,14 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class MyTomcat implements WebServerFactory {
-    @Override
+
     public void createServer() throws Exception {
         Tomcat tomcat = new Tomcat();
         tomcat.setPort(8088);
 
         tomcat.addContext("/", "D://tomcattest");
         tomcat.start();
+        // 阻塞等待
         tomcat.getServer().await();
     }
 }

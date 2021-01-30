@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.DispatcherServlet;
 
 /**
- * description
+ * description 将相关的bean加载到ioc容器
  *
  * @author xichengxml
  * @date 2021/1/29 下午 11:15
