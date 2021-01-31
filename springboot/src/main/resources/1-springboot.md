@@ -56,5 +56,72 @@ org.springframework.web.SpringServletContainerInitializer
 Spring加载tomcat初始化类使用的就是SPI技术，实现类：org.springframework.web.SpringServletContainerInitializer
 类上面的注解@HandlesTypes使用的是字节码技术
 
-源码流程参见springboot源码里的注释
+IOC容器启动和tomcat启动源码流程参见springboot源码里的注释
+
+DispatcherServlet加载到IOC容器和tomcat上下文的代码入口：spring-boot-autoconfigure包下面的META-INF的spring.factories文件
+org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration
+
+
+org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration.DispatcherServletConfiguration.dispatcherServlet
+将DispatcherServlet添加到IOC容器
+
+org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration.DispatcherServletRegistrationConfiguration.dispatcherServletRegistration
+依赖DispatcherServlet
+它的父类是ServletRegistrationBean，父类的类图关系见uml图 -> ServletContextInitializer
+
+与ServletContainerInitializer关系：与WebApplicationInitializer一样
+
+Tomcat子容器：StandardContext 
+-> 添加：org.apache.catalina.core.StandardContext.addServletContainerInitializer
+-> tomcat启动时使用SPI调用：org.apache.catalina.core.StandardContext.startInternal
+```
+for (Map.Entry<ServletContainerInitializer, Set<Class<?>>> entry : initializers.entrySet()) {
+    try {
+        // SPI实现
+        entry.getKey().onStartup(entry.getValue(),getServletContext());
+    } catch (ServletException e) {
+        log.error(sm.getString("standardContext.sciFail"), e);
+        ok = false;
+        break;
+    }
+}
+```
+
+ServletContextInitializer的onStartUp被调用的地方：org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.createWebServer
+```
+this.webServer = factory.getWebServer(getSelfInitializer());
+```
+->org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.selfInitialize
+```
+// springboot jar包部署方式
+if (webServer == null && servletContext == null) {
+	StartupStep createWebServer = this.getApplicationStartup().start("spring.boot.webserver.create");
+	ServletWebServerFactory factory = getWebServerFactory();
+	createWebServer.tag("factory", factory.getClass().toString());
+    // *
+	this.webServer = factory.getWebServer(getSelfInitializer());
+	createWebServer.end();
+	getBeanFactory().registerSingleton("webServerGracefulShutdown",
+			new WebServerGracefulShutdownLifecycle(this.webServer));
+	getBeanFactory().registerSingleton("webServerStartStop",
+			new WebServerStartStopLifecycle(this, this.webServer));
+}
+// springboot打war包执行，tomcat先执行，上下文非空
+else if (servletContext != null) {
+	try {
+        // 触发实际方法执行
+		getSelfInitializer().onStartup(servletContext);
+	}
+	catch (ServletException ex) {
+		throw new ApplicationContextException("Cannot initialize servlet context", ex);
+	}
+}
+```
+-> org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory.prepareContext
+-> org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory.configureContext
+-> 完成ServletContextInitializer取代ServletContainerInitializer：org.springframework.boot.web.embedded.tomcat.TomcatStarter.onStartup
+
+* springboot没有自己实现SPI，利用了tomcat的SPI
+* spring自己实现了SPI,使用WebApplicationInitializer取代ServletContainerInitializer
+
 
