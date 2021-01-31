@@ -21,6 +21,7 @@
         <module>springboot</module>
         <module>springboot-starter</module>
         <module>document</module>
+        <module>hot-deploy</module>
     </modules>
     <properties>
         <java.version>1.8</java.version>
